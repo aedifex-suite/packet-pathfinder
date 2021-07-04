@@ -1,0 +1,162 @@
+import * as utils from './utils.js'
+
+class {
+  onCreate(input) {
+    this.subscribeTo(input.link).on('refresh', () => {
+      this.forceUpdate()
+    })
+    this.subscribeTo(input.link).on('destroy', () => {
+      this.destroy({removeNode: false, recursive: false})
+    })
+  }
+
+}
+
+section
+  h1 -- ${input.dot['name']} CR ${input.dot['cr']||'-'} 
+  div.XP
+    label -- XP
+    span -- ${input.dot['xp']||'-'}
+  if(input.dot['levels'] && input.dot['levels'].length > 0)
+    div.RCL
+      <span.RCL__Race>${input.dot['race']} </span>
+      for|level, index| of=input.dot['levels']
+        span.RCL__CL
+          span.RCL__CL__Class -- ${level.class}
+          <span> </span>
+          span.RCL__CL__Level -- ${level.level}
+        if(index !== input.dot['levels'].length-1)
+          span -- /
+  div.AlignmentSizeTypes
+    <span.Alignment>${utils.getShortAlignment(input.dot['alignment'])} </span>
+    <span.Size>${input.dot['size']} </span>
+    <span.Types>${input.dot['creature-type']} ${input.dot['race']?`(${input.dot['race']})`:''}</span>
+  div.InitiativeSenses
+    $ let init = utils.getInitiative(input.file.state)
+    <span.InitiativeSenses__Initiative>Init</span>
+    <span> ${init>=0?`+${init}`:`-${init}`}; </span>
+    span -- Senses
+      if(input.dot['senses'])
+        for|sense, index| of=input.dot['senses']
+          span -- ${sense.name} ${sense.value} ft.${(index!==input.dot['senses'].length-1)?',':''}
+        span -- ;
+      if(input.dot['skills.Perception']!==undefined)
+        span -- Perception ${input.dot['skills.Perception']>0?'+':'-'} ${input.dot['skills.Perception']}
+section
+  h2 -- Defense
+  div -- AC ${utils.getAC(input.file.state)}
+    <span>, touch ${utils.getTouchAC(input.file.state)}</span>
+    <span>, flat-footed ${utils.getFlatFootedAC(input.file.state)} </span>
+    $ let acmap = Object.entries(utils.getACMap(input.file.state)).filter(v=>v[1]!==0)
+    if(acmap.length > 0)
+      span -- (
+        for|entry,index| of=acmap
+          if(entry[1] !== 0)
+            if(entry[1] >= 1)
+              span -- +${entry[1]}
+            else
+              span -- ${entry[1]}
+            <span> ${entry[0]}</span>
+            if(index !== acmap.length-1)
+              <span>, </span>
+      span -- )
+  $ let [hp, hpErr] = utils.averageHP(input.dot['hitdice'], input.dot['hitpips'])
+  $ let [lvlhps, lvlhpsErr] = [[],[]]
+  $ let bonushp = utils.getBonusHP(input.file.state)
+  if(input.dot['levels'] && input.dot['levels'].length>0)
+    for|level, index| of=input.dot['levels']
+      $ let [lvlhp, lvlhpErr] = utils.averageHP(level.level, level.hitpips)
+      if(index===0&&input.dot['hitdice']===0)
+        $ lvlhp += level.hitpips/2 // First HD is max if it comes from a class level.
+      $ lvlhps.push(lvlhp)
+      $ lvlhpsErr.push(lvlhpErr)
+  div
+    span -- HP ${hp+lvlhps.reduce((a,b)=>a+b,0)+bonushp}
+    span -- (
+      if(input.dot['hitdice']>0&&input.dot['levels'] && input.dot['levels'].length > 0)
+        <span>${input.dot['hitdice']+input.dot['levels'].reduce((a,b)=>a+b.level,0)} HD; </span>
+      $ let [collectedhd, collectedhdErr] = utils.collectHD(input.file.state)
+      for|entry, index| of=Array.from(collectedhd)
+        span -- ${index!==0?'+':''}${entry[1]}d${entry[0]}
+      span -- +${bonushp}
+    span -- )
+  div.Saves
+    span.Saves__item
+      $ let fort = utils.getSave(input.file.state, 'fortitude')
+      <span.Saves__item__name>Fort</span>
+      <span.Saves__item__value> ${fort>=0?`+${fort}`:`${fort}`}, </span>
+    span.Saves__item
+      $ let reflex = utils.getSave(input.file.state, 'reflex')
+      <span.Saves__item__name>Reflex</span>
+      <span.Saves__item__value> ${reflex>=0?`+${reflex}`:`${reflex}`}, </span>
+    span.Saves__item
+      $ let will = utils.getSave(input.file.state, 'will')
+      <span.Saves__item__name>Will</span>
+      <span.Saves__item__value> ${will>=0?`+${will}`:`${will}`}</span>
+section
+  h2 -- Statistics
+  if(input.dot['ability scores'])
+    div.AbilityScores__item
+      for|score, index, scores| of=['str', 'dex', 'con', 'int', 'wis', 'cha']
+        span.AbilityScores__item
+          span.AbilityScores__item__name -- ${score}&#32; 
+          span.AbilityScores__item__value -- ${utils.getAbilityScore(input.file.state, score)}
+          if(index !== scores.length-1)
+            span -- ,&nbsp;
+  div.CombatScores
+    span.CombatScores__item
+      $ let baseattack = utils.getBaseAttack(input.file.state)
+      span.CombatScores__item__name -- Base Atk
+      <span.CombatScores__item__value> +${baseattack}; </span>
+    span.CombatScores__item
+      $ let cmb = utils.getCMB(input.file.state)
+      span.CombatScores__item__name -- CMB
+      <span.CombatScores__item__value> ${cmb>=0?`+${cmb}`:`${cmb}`}; </span>
+    span.CombatScores__item
+      $ let cmd = utils.getCMD(input.file.state)
+      span.CombatScores__item__name -- CMD
+      <span.CombatScores__item__value> ${cmd}</span>
+
+style {
+  .AlignmentSizeTypes {
+    text-transform: capitalize;
+  }
+  .AbilityScores {
+  }
+  .AbilityScores__item {
+  }
+  .AbilityScores__item__name {
+    font-weight: bold;
+    text-transform: capitalize;
+  }
+  .AbilityScores__item__value {
+  }
+  .CombatScores__item__name {
+    font-weight: bold;
+    text-transform: capitalize;
+  }
+  .CombatScores__item__value {
+  }
+  .RCL__Race, .RCL__CL__Class {
+    text-transform: capitalize;
+  }
+  .InitiativeSenses {
+  }
+  .InitiativeSenses__Initiative {
+    font-weight: bold;
+  }
+  .InitiativeSenses__Senses {
+    font-weight: bold;
+  }
+  .Saves__item {
+  }
+  .Saves__item__name {
+    font-weight: bold;
+    text-transform: capitalize;
+  }
+  .Saves__item__value {
+  }
+  section h1:first-child {
+    margin-top: 0;
+  }
+}
